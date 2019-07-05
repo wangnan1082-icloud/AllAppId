@@ -17,7 +17,7 @@
 @property (nonatomic, strong) UITableView *myTableView;
 @property (nonatomic, strong) NSMutableArray *dataArray;
 @property (nonatomic, strong) UISearchController *searchController;
-@property (nonatomic, strong) NSMutableArray * filteredArray;
+@property (nonatomic, strong) NSMutableArray *filteredArray;
 
 @end
 
@@ -40,27 +40,12 @@
     [self getAppData];
 }
 
-#pragma mark - Setter
-
-- (UITableView *)myTableView {
-    if (!_myTableView) {
-        _myTableView = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleGrouped];
-        [_myTableView registerClass:[UITableViewCell class] forCellReuseIdentifier:@"CellID"];
-        _myTableView.delegate = self;
-        _myTableView.dataSource = self;
-        
-    }
-    return _myTableView;
-}
-
 #pragma mark - TableView
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-    
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"CellID" forIndexPath:indexPath];
     cell.textLabel.numberOfLines = 0;
     if (self.dataArray.count > 0) {
-        
         if (_shouldShowSearchResults) {
             BundleModel *model = self.filteredArray[indexPath.row];
             cell.textLabel.text = [NSString stringWithFormat:@"%@ : %@",model.localizedName,model.bundlId];
@@ -68,7 +53,6 @@
             BundleModel *model = self.dataArray[indexPath.row];
             cell.textLabel.text = [NSString stringWithFormat:@"%@ : %@",model.localizedName,model.bundlId];
         }
-        
     }
     return cell;
 }
@@ -101,7 +85,7 @@
 - (void)configureSearchController {
     _searchController = [[UISearchController alloc] initWithSearchResultsController:nil];
     _searchController.searchResultsUpdater = self;
-    _searchController.searchBar.placeholder = @"";
+    _searchController.searchBar.placeholder = @"搜索应用名";
     _searchController.dimsBackgroundDuringPresentation = NO;
     _searchController.searchBar.delegate = self;
     [_searchController.searchBar sizeToFit];
@@ -131,7 +115,7 @@
 #pragma mark - UISearchResultsUpdating
 
 - (void)updateSearchResultsForSearchController:(UISearchController *)searchController {
-    NSString * searchString = searchController.searchBar.text;
+    NSString *searchString = searchController.searchBar.text;
     
     NSMutableArray *searchResults = [self.dataArray mutableCopy];
     NSMutableArray *searchItemsPredicate = [NSMutableArray array];
@@ -146,15 +130,14 @@
                                    options:NSCaseInsensitivePredicateOption];
     [searchItemsPredicate addObject:finalPredicate];
     self.filteredArray = [[searchResults filteredArrayUsingPredicate:finalPredicate] mutableCopy];
-        
     [self.myTableView reloadData];
 }
 
 #pragma mark - getAppData
 
--(void)getAppData{
+- (void)getAppData{
     Class LSApplicationWorkspace_class = objc_getClass("LSApplicationWorkspace");
-    NSObject* workspace = [LSApplicationWorkspace_class performSelector:@selector(defaultWorkspace)];
+    NSObject *workspace = [LSApplicationWorkspace_class performSelector:@selector(defaultWorkspace)];
     
     NSArray *allBundleIds = [workspace performSelector:@selector(allApplications)];
     
@@ -177,6 +160,66 @@
     
     [self.myTableView reloadData];
     
+}
+
+#pragma mark - 生成 libReveal.plist
+
+- (IBAction)generayeLibRevealPlist:(id)sender {
+    NSDictionary *dic = [self getAllAppBundleIDRevealData];
+    [self writeToFileWithData:dic fileName:@"libReveal.plist"];
+}
+
+#pragma mark -
+
+/**
+ 获取设备上所有的Bundle ID，拼接成字典
+ */
+- (NSDictionary *)getAllAppBundleIDRevealData {
+    Class LSApplicationWorkspace_class = objc_getClass("LSApplicationWorkspace");
+    NSObject *workspace = [LSApplicationWorkspace_class performSelector:@selector(defaultWorkspace)];
+    NSArray *allBundleIds = [workspace performSelector:@selector(allApplications)];
+    Class LSApplicationProxy_class = objc_getClass("LSApplicationProxy");
+    
+    NSDictionary *dic = [NSDictionary dictionary];
+    NSMutableArray *muArr = [NSMutableArray arrayWithCapacity:10];
+    for (NSInteger i = 0; i < allBundleIds.count; i++) {
+        Class LSApplicationProxy_class = allBundleIds[i];
+        NSString *bundlId = [LSApplicationProxy_class performSelector:(@selector(applicationIdentifier)) ];
+        [muArr addObject:bundlId];
+        if (i == allBundleIds.count - 1) {
+            // 按照Reveal的格式拼接成Dictionary
+            NSDictionary *tempDic = @{@"Filter":@{@"Bundles":muArr.copy}};
+            dic = tempDic;
+        }
+    }
+    return dic;
+}
+
+// 将数据写入文件
+- (void)writeToFileWithData:(id)data fileName:(NSString *)fileNameStr {
+    if (!data) {
+        return;
+    }
+    // 获取应用Documents目录路径
+    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask, YES);
+    NSString *documentsDirectory = [paths objectAtIndex:0];
+    NSString *filePath = [documentsDirectory stringByAppendingPathComponent:fileNameStr];
+    // 写入文件
+    [data writeToFile:filePath atomically:YES];
+    NSLog(@"filePath: %@", filePath);
+}
+
+
+#pragma mark - Setter
+
+- (UITableView *)myTableView {
+    if (!_myTableView) {
+        _myTableView = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleGrouped];
+        [_myTableView registerClass:[UITableViewCell class] forCellReuseIdentifier:@"CellID"];
+        _myTableView.delegate = self;
+        _myTableView.dataSource = self;
+    }
+    return _myTableView;
 }
 
 - (void)didReceiveMemoryWarning {
