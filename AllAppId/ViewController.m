@@ -185,6 +185,9 @@
     for (NSInteger i = 0; i < allBundleIds.count; i++) {
         Class LSApplicationProxy_class = allBundleIds[i];
         NSString *bundlId = [LSApplicationProxy_class performSelector:(@selector(applicationIdentifier)) ];
+        if ([bundlId containsString:@"com.apple"]) {
+            continue;
+        }
         [muArr addObject:bundlId];
         if (i == allBundleIds.count - 1) {
             // 按照Reveal的格式拼接成Dictionary
